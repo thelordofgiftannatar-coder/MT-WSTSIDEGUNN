@@ -1,0 +1,32 @@
+name: Build Night City APK
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Get apktool
+        run: wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O apktool.jar
+      - name: Unpack original APK
+        run: java -jar apktool.jar d -f base/app-debug.apk -o work
+      - name: Apply web app and icons
+        run: |
+          cp -r www/* work/assets/public/
+          for f in $(cd android-res && find . -name '*.png'); do
+            [ -f "work/res/$f" ] && cp "android-res/$f" "work/res/$f" || true
+          done
+      - name: Rename app
+        run: |
+          sed -i 's/Officer K/Night City/g' work/res/values/strings.xml
+          grep -rl "Officer K" work/smali* 2>/dev/null | xargs -r sed -i 's/Officer K/Night City/g'
+      - name: Rebuild
+        run: java -jar apktool.jar b work -o unsigned.apk
+      - name: Align and sign
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools
